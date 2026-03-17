@@ -1,0 +1,32 @@
+max_request_time: 30
+cleanup_delay: 5
+max_requests: 16384
+hostname_lookups: no
+log:
+  destination: files
+  file: ${logdir}/radius.log
+  syslog_facility: daemon
+  stripped_names: no
+  auth: no
+#  auth_accept: no
+#  auth_reject: no
+  auth_badpass: no
+  auth_goodpass: no
+#  msg_goodpass:
+#  msg_badpass:
+  msg_denied: You are already logged in - access denied
+checkrad: ${sbindir}/checkrad
+security:
+#  chroot: /path/to/chroot/directory
+#  user: radius
+#  group: radius
+  max_attributes: 200
+  reject_delay: 1
+  status_server: yes
+thread:
+  start_servers: 5
+  max_servers: 32
+  min_spare_servers: 3
+  max_spare_servers: 10
+  max_requests_per_server: 0
+  auto_limit_acct: no

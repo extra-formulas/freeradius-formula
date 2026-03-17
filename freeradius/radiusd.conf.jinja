@@ -1,0 +1,433 @@
+{%- set str_from_bool = {True : 'yes', False : 'no'} -%}
+
+prefix = {{ global_variables['prefix'] }}
+exec_prefix = {{ global_variables['exec_prefix'] }}
+sysconfdir = {{ global_variables['sysconfdir'] }}
+localstatedir = {{ global_variables['localstatedir'] }}
+sbindir = {{ global_variables['sbindir'] }}
+logdir = {{ global_variables['logdir'] }}
+raddbdir = {{ global_variables['raddbdir'] }}
+radacctdir = {{ global_variables['radacctdir'] }}
+
+#
+#  name of the running server.  See also the "-n" command-line option.
+name = {{ service_name }}
+
+confdir = {{ global_variables['confdir'] }}
+modconfdir = {{ global_variables['modconfdir'] }}
+certdir = {{ global_variables['certdir'] }}
+cadir   = {{ global_variables['cadir'] }}
+run_dir = {{ global_variables['run_dir'] }}
+
+db_dir = ${localstatedir}/lib/radiusd
+
+libdir = {{ global_variables['libdir'] }}
+
+#  pidfile: Where to place the PID of the RADIUS server.
+#
+#  The server may be signalled while it's running by using this
+#  file.
+#
+#  This file is written when ONLY running in daemon mode.
+#
+#  e.g.:  kill -HUP `cat /var/run/radiusd/radiusd.pid`
+#
+pidfile = ${run_dir}/${name}.pid
+
+#
+#  correct_escapes: use correct backslash escaping
+#
+#  Prior to version 3.0.5, the handling of backslashes was a little
+#  awkward, i.e. "wrong".  In some cases, to get one backslash into
+#  a regex, you had to put 4 in the config files.
+#
+#  Version 3.0.5 fixes that.  However, for backwards compatibility,
+#  the new method of escaping is DISABLED BY DEFAULT.  This means
+#  that upgrading to 3.0.5 won't break your configuration.
+#
+#  If you don't have double backslashes (i.e. \\) in your configuration,
+#  this won't matter to you.  If you do have them, fix that to use only
+#  one backslash, and then set "correct_escapes = true".
+#
+#  You can check for this by doing:
+#
+#	$ grep '\\\\' $(find raddb -type f -print)
+#
+correct_escapes = true
+
+#  panic_action: Command to execute if the server dies unexpectedly.
+#
+#  FOR PRODUCTION SYSTEMS, ACTIONS SHOULD ALWAYS EXIT.
+#  AN INTERACTIVE ACTION MEANS THE SERVER IS NOT RESPONDING TO REQUESTS.
+#  AN INTERACTICE ACTION MEANS THE SERVER WILL NOT RESTART.
+#
+#  THE SERVER MUST NOT BE ALLOWED EXECUTE UNTRUSTED PANIC ACTION CODE
+#  PATTACH CAN BE USED AS AN ATTACK VECTOR.
+#
+#  The panic action is a command which will be executed if the server
+#  receives a fatal, non user generated signal, i.e. SIGSEGV, SIGBUS,
+#  SIGABRT or SIGFPE.
+#
+#  This can be used to start an interactive debugging session so
+#  that information regarding the current state of the server can
+#  be acquired.
+#
+#  The following string substitutions are available:
+#  - %e   The currently executing program e.g. /sbin/radiusd
+#  - %p   The PID of the currently executing program e.g. 12345
+#
+#  Standard ${} substitutions are also allowed.
+#
+#  An example panic action for opening an interactive session in GDB would be:
+#
+#panic_action = "gdb %e %p"
+#
+#  Again, don't use that on a production system.
+#
+#  An example panic action for opening an automated session in GDB would be:
+#
+#panic_action = "gdb -silent -x ${raddbdir}/panic.gdb %e %p 2>&1 | tee ${logdir}/gdb-${name}-%p.log"
+#
+#  That command can be used on a production system.
+#
+
+max_request_time = {{ max_request_time }}
+cleanup_delay = {{ cleanup_delay }}
+max_requests = {{ max_requests }}
+hostname_lookups = {{ str_from_bool[hostname_lookups] }}
+
+log {
+	destination = {{ log.destination }}
+	#
+	#  Highlight important messages sent to stderr and stdout.
+	#
+	#  Option will be ignored (disabled) if output if TERM is not
+	#  an xterm or output is not to a TTY.
+	#
+	colourise = yes
+	file = {{ log.file }}
+	syslog_facility = {{ log.syslog_facility }}
+	stripped_names = {{ str_from_bool[log.stripped_names] }}
+	auth = {{ str_from_bool[log.auth] }}
+	{%- if log.auth_accept is defined %}
+	auth_accept = {{ str_from_bool[log.auth_accept] }}
+	{%- endif %}
+	{%- if log.auth_reject is defined %}
+	auth_reject = {{ str_from_bool[log.auth_reject] }}
+	{%- endif %}
+	auth_badpass = {{ str_from_bool[log.auth_badpass] }}
+	auth_goodpass = {{ str_from_bool[log.auth_goodpass] }}
+	{%- if log.msg_goodpass is defined %}
+	msg_goodpass = {{ log.msg_goodpass }}
+	{%- endif %}
+	{%- if log.msg_badpass is defined %}
+	msg_badpass = {{ log.msg_badpass }}
+	{%- endif %}
+	msg_denied = "{{ log.msg_denied }}"
+}
+{%- if checkrad is defined %}
+checkrad = {{ checkrad }}
+{%- else %}
+checkrad = ${sbindir}/checkrad
+{%- endif %}
+
+#
+#  ENVIRONMENT VARIABLES
+#
+#  You can reference environment variables using an expansion like
+#  `$ENV{PATH}`.  However it is sometimes useful to be able to also set
+#  environment variables.  This section lets you do that.
+#
+#  The main purpose of this section is to allow administrators to keep
+#  RADIUS-specific configuration in the RADIUS configuration files.
+#  For example, if you need to set an environment variable which is
+#  used by a module.  You could put that variable into a shell script,
+#  but that's awkward.  Instead, just list it here.
+#
+#  Note that these environment variables are set AFTER the
+#  configuration file is loaded.  So you cannot set FOO here, and
+#  expect to reference it via `$ENV{FOO}` in another configuration file.
+#  You should instead just use a normal configuration variable for
+#  that.
+#
+ENV {
+	#
+	#  Set environment varable `FOO` to value '/bar/baz'.
+	#
+	#  NOTE: Note that you MUST use '='.  You CANNOT use '+=' to append
+	#  values.
+	#
+#	FOO = '/bar/baz'
+
+	#
+	#  Delete environment variable `BAR`.
+	#
+#	BAR
+
+	#
+	#  `LD_PRELOAD` is special.  It is normally set before the
+	#  application runs, and is interpreted by the dynamic linker.
+	#  Which means you cannot set it inside of an application, and
+	#  expect it to load libraries.
+	#
+	#  Since this functionality is useful, we extend it here.
+	#
+	#  You can set
+	#
+	#  LD_PRELOAD = /path/to/library.so
+	#
+	#  and the server will load the named libraries.  Multiple
+	#  libraries can be loaded by specificing multiple individual
+	#  `LD_PRELOAD` entries.
+	#
+	#
+#	LD_PRELOAD = /path/to/library1.so
+#	LD_PRELOAD = /path/to/library2.so
+}
+security {
+	{%- if security.chroot is defined %}
+	chroot = {{ security.chroot }}
+	{%- endif %}
+	{%- if security.user is defined %}
+	user = {{ security.user }}
+	{%- endif %}
+	{%- if security.group is defined %}
+	group = {{ security.group }}
+	{%- endif %}
+
+	#  Core dumps are a bad thing.  This should only be set to
+	#  'yes' if you're debugging a problem with the server.
+	#
+	#  allowed values: {no, yes}
+	#
+	allow_core_dumps = no
+    
+	max_attributes = {{ security.max_attributes }}
+	reject_delay = {{ security.reject_delay }}
+	status_server = {{ str_from_bool[security.status_server] }}
+}
+
+{%- if proxy is defined %}
+proxy_requests  = yes
+$INCLUDE {{ includes.proxy }}
+{%- else %}
+proxy_requests  = no
+#$INCLUDE proxy.conf
+{%- endif %}
+
+{%- if clients is defined %}
+$INCLUDE {{ includes.clients }}
+{%- else %}
+#$INCLUDE {{ includes.clients }}
+{%- endif %}
+
+thread pool {
+	start_servers = {{ thread.start_servers }}
+	max_servers = {{ thread.max_servers }}
+	min_spare_servers = {{ thread.min_spare_servers }}
+	max_spare_servers = {{ thread.max_spare_servers }}
+
+	#  When the server receives a packet, it places it onto an
+	#  internal queue, where the worker threads (configured above)
+	#  pick it up for processing.  The maximum size of that queue
+	#  is given here.
+	#
+	#  When the queue is full, any new packets will be silently
+	#  discarded.
+	#
+	#  The most common cause of the queue being full is that the
+	#  server is dependent on a slow database, and it has received
+	#  a large "spike" of traffic.  When that happens, there is
+	#  very little you can do other than make sure the server
+	#  receives less traffic, or make sure that the database can
+	#  handle the load.
+	#
+#	max_queue_size = 65536
+	
+	max_requests_per_server = {{ thread.max_requests_per_server }}
+	auto_limit_acct = {{ str_from_bool[thread.max_requests_per_server] }}
+}
+
+######################################################################
+#
+#  SNMP notifications.  Uncomment the following line to enable
+#  snmptraps.  Note that you MUST also configure the full path
+#  to the "snmptrap" command in the "trigger.conf" file.
+#
+#$INCLUDE trigger.conf
+
+# MODULE CONFIGURATION
+#
+#  The names and configuration of each module is located in this section.
+#
+#  After the modules are defined here, they may be referred to by name,
+#  in other sections of this configuration file.
+#
+modules {
+	#
+	#  Each module has a configuration as follows:
+	#
+	#	name [ instance ] {
+	#		config_item = value
+	#		...
+	#	}
+	#
+	#  The 'name' is used to load the 'rlm_name' library
+	#  which implements the functionality of the module.
+	#
+	#  The 'instance' is optional.  To have two different instances
+	#  of a module, it first must be referred to by 'name'.
+	#  The different copies of the module are then created by
+	#  inventing two 'instance' names, e.g. 'instance1' and 'instance2'
+	#
+	#  The instance names can then be used in later configuration
+	#  INSTEAD of the original 'name'.  See the 'radutmp' configuration
+	#  for an example.
+	#
+
+	#
+	#  Some modules have ordering issues.  e.g. "sqlippool" uses
+	#  the configuration from "sql".  In that case, the "sql"
+	#  module must be read off of disk before the "sqlippool".
+	#  However, the directory inclusion below just reads the
+	#  directory from start to finish.  Which means that the
+	#  modules are read off of disk randomly.
+	#
+	#  As of 3.0.18, you can list individual modules *before* the
+	#  directory inclusion.  Those modules will be loaded first.
+	#  Then, when the directory is read, those modules will be
+	#  skipped and not read twice.
+	#
+#	$INCLUDE mods-enabled/sql
+
+	#
+	#  As of 3.0, modules are in mods-enabled/.  Files matching
+	#  the regex /[a-zA-Z0-9_.]+/ are loaded.  The modules are
+	#  initialized ONLY if they are referenced in a processing
+	#  section, such as authorize, authenticate, accounting,
+	#  pre/post-proxy, etc.
+	#
+	$INCLUDE {{ includes.mods_enabled }}
+}
+
+# Instantiation
+#
+#  This section sets the instantiation order of the modules.  listed
+#  here will get started up BEFORE the sections like authorize,
+#  authenticate, etc. get examined.
+#
+#  This section is not strictly needed.  When a section like authorize
+#  refers to a module, the module is automatically loaded and
+#  initialized.  However, some modules may not be listed in any of the
+#  processing sections, so they should be listed here.
+#
+#  Also, listing modules here ensures that you have control over
+#  the order in which they are initialized.  If one module needs
+#  something defined by another module, you can list them in order
+#  here, and ensure that the configuration will be OK.
+#
+#  After the modules listed here have been loaded, all of the modules
+#  in the "mods-enabled" directory will be loaded.  Loading the
+#  "mods-enabled" directory means that unlike Version 2, you usually
+#  don't need to list modules here.
+#
+instantiate {
+	#
+	# We list the counter module here so that it registers
+	# the check_name attribute before any module which sets
+	# it
+#	daily
+
+	# subsections here can be thought of as "virtual" modules.
+	#
+	# e.g. If you have two redundant SQL servers, and you want to
+	# use them in the authorize and accounting sections, you could
+	# place a "redundant" block in each section, containing the
+	# exact same text.  Or, you could uncomment the following
+	# lines, and list "redundant_sql" in the authorize and
+	# accounting sections.
+	#
+	#  The "virtual" module defined here can also be used with
+	#  dynamic expansions, under a few conditions:
+	#
+	#  * The section is "redundant", or "load-balance", or
+	#    "redundant-load-balance"
+	#  * The section contains modules ONLY, and no sub-sections
+	#  * all modules in the section are using the same rlm_
+	#    driver, e.g. They are all sql, or all ldap, etc.
+	#
+	#  When those conditions are satisfied, the server will
+	#  automatically register a dynamic expansion, using the
+	#  name of the "virtual" module.  In the example below,
+	#  it will be "redundant_sql".  You can then use this expansion
+	#  just like any other:
+	#
+	#	update reply {
+	#		Filter-Id := "%{redundant_sql: ... }"
+	#	}
+	#
+	#  In this example, the expansion is done via module "sql1",
+	#  and if that expansion fails, using module "sql2".
+	#
+	#  For best results, configure the "pool" subsection of the
+	#  module so that "retry_delay" is non-zero.  That will allow
+	#  the redundant block to quickly ignore all "down" SQL
+	#  databases.  If instead we have "retry_delay = 0", then
+	#  every time the redundant block is used, the server will try
+	#  to open a connection to every "down" database, causing
+	#  problems.
+	#
+	#redundant redundant_sql {
+	#	sql1
+	#	sql2
+	#}
+}
+
+######################################################################
+#
+#  Policies are virtual modules, similar to those defined in the
+#  "instantiate" section above.
+#
+#  Defining a policy in one of the policy.d files means that it can be
+#  referenced in multiple places as a *name*, rather than as a series of
+#  conditions to match, and actions to take.
+#
+#  Policies are something like subroutines in a normal language, but
+#  they cannot be called recursively. They MUST be defined in order.
+#  If policy A calls policy B, then B MUST be defined before A.
+#
+######################################################################
+policy {
+	$INCLUDE {{ includes.policy_d }}
+}
+
+######################################################################
+#
+#	Load virtual servers.
+#
+#	This next $INCLUDE line loads files in the directory that
+#	match the regular expression: /[a-zA-Z0-9_.]+/
+#
+#	It allows you to define new virtual servers simply by placing
+#	a file into the raddb/sites-enabled/ directory.
+#
+$INCLUDE {{ includes.sites_enabled }}
+
+######################################################################
+#
+#	All of the other configuration sections like "authorize {}",
+#	"authenticate {}", "accounting {}", have been moved to the
+#	the file:
+#
+#		raddb/sites-available/default
+#
+#	This is the "default" virtual server that has the same
+#	configuration as in version 1.0.x and 1.1.x.  The default
+#	installation enables this virtual server.  You should
+#	edit it to create policies for your local site.
+#
+#	For more documentation on virtual servers, see:
+#
+#		raddb/sites-available/README
+#
+######################################################################

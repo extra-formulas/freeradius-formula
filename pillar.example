@@ -1,0 +1,415 @@
+freeradius:
+  max_request_time: 30
+  cleanup_delay: 5
+  max_requests: 16384
+  hostname_lookups: no
+  log:
+    destination: files
+    file: ${logdir}/radius.log
+    syslog_facility: daemon
+    stripped_names: no
+    auth: no
+#    auth_accept: no
+#    auth_reject: no
+    auth_badpass: no
+    auth_goodpass: no
+    msg_denied: You are already logged in - access denied
+  security:
+#    chroot: /my/path
+#    user: radiusd
+#    group: radiusd
+    max_attributes: 200
+    reject_delay: 1
+    status_server: yes
+  thread:
+    start_servers: 5
+    max_servers: 32
+    min_spare_servers: 3
+    max_spare_servers: 10
+    max_requests_per_server: 0
+    auto_limit_acct: no
+  proxy:
+    - "proxy server":
+      - default_fallback: no
+    - "home_server localhost":
+      - type: auth
+      - ipaddr: 127.0.0.2
+      - ipv6addr: '::2'
+      - virtual_server: bar
+      - port: 1649
+      - proto: tcp
+      - secret: 0912347jasc
+      - src_ipaddr: 127.0.0.3
+      - response_window: 30
+      - response_timeouts: 3
+      - no_response_fail: no
+      - zombie_period: 50
+      - revive_interval: 120
+      - status_check: request
+      - username: '"test_user_please_reject_me"'
+      - password: '"this is really secret"'
+      - check_interval: 120
+      - check_timeout: 50
+      - num_answers_to_alive: 10
+      - max_outstanding: 10000
+      - coa:
+        - irt: 10
+        - mrt: 19
+        - mrc: 10
+        - mrd: 15
+      - limit:
+        - max_connections: 10
+        - max_requests: 12
+        - lifetime: 3
+        - idle_timeout: 4
+    - "home_server virtual.example.com":
+      - virtual_server: virtual.example.com
+    - "home_server_pools my_auth_failover":
+      - type: client-port-balance
+      - virtual_server: pre_post_proxy_for_pool1
+      - home_servers: localhost
+      - home_servers: foo.example.com
+      - home_servers: bar.example.com
+      - home_servers: baz.example.com
+      - fallback: virtual.example.com
+    - "realms example.com":
+      - auth_pool: my_auth_failover
+      - acct_pool: acct
+      - coa_pool: name_of_coa_pool
+      - nostrip
+    - "realms IPASS":
+      - nostrip
+      - auth_pool: ipass_auth_pool
+      - acct_pool: ipass_acct_pool
+    - "realms LOCAL": []
+    - "realms NULL":
+      - authhost: 'radius.example.com:1600'
+      - accthost: 'radius.example.com:1601'
+      - secret: testing123
+    - "realms DEFAULT":
+      - authhost: 'radius.example.com:1600'
+      - accthost: 'radius.example.com:1601'
+      - secret: testing123
+    - "realms virtual.example.com":
+      - virtual_server: virtual.example.com
+    - '"~(.*\.)*example\.net$"':
+      - auth_pool: my_auth_failover
+  clients:
+    - "client localhost":
+      - ipaddr: 127.0.0.1
+      - ipv4addr: '*'
+      - ipv6addr: '::'
+      - proto: tcp
+      - secret: testing1234
+      - require_message_authenticator: no
+      - shortname: localhost
+      - nas_type: other
+      - login: '!root'
+      - password: someadminpas
+      - virtual_server: home1
+      - coa_server: coa
+      - response_window: 10.0
+      - limit:
+        - max_connections: 16
+        - lifetime: 0
+        - idle_timeout: 30
+    - "client localhost_ipv6":
+      - ipv6addr: "::1"
+      - secret: testing123
+    - "client sitelocal_ipv6":
+      - ipv6addr: "fe80::/16"
+      - secret: testing123
+    - "client example.org":
+      - ipaddr: radius.example.org
+      - secret: testing123
+    - "client private-network-1":
+      - ipaddr: 192.0.2.0/24
+      - secret: testing123-1
+    - "client private-network-2":
+      - ipaddr: 198.51.100.0/24
+      - secret: testing123-2
+    - "clients per_socket_clients":
+      - "client socket_client":
+        - ipaddr: 192.0.2.4
+        - secret: testing123
+  virtual:
+    default:
+      - listen:
+        - type: auth
+        - ipaddr: '*'
+        - ipv4addr: '*'
+        - ipv6addr: '*'
+        - port: 0
+        - interface: eth0
+        - clients: per_socket_clients
+        - limit:
+          - max_connections: 16
+          - lifetime: 0
+          - idle_timeout: 30
+      - listen:
+        - ipaddr: '*'
+        - ipv6addr: '::'
+        - port: 0
+        - type: acct
+        - interface: eth0
+        - clients: per_socket_clients
+        - limit:
+          - max_pps: 0
+          - idle_timeout: 0
+          - lifetime: 0
+          - max_connections: 0
+      - listen:
+        - type: auth
+        - ipv6addr: '::' # any.  ::1 == localhost
+        - port: 0
+        - interface: eth0
+        - clients: per_socket_clients
+        - limit:
+          - max_connections: 16
+          - lifetime: 0
+          - idle_timeout: 30
+      - listen:
+        - ipv6addr: '::'
+        - port: 0
+        - type: acct
+        - interface: eth0
+        - clients: per_socket_clients
+        - limit:
+          - max_pps: 0
+          - idle_timeout: 0
+          - lifetime: 0
+          - max_connections: 0
+      - authorize:
+        - filter_username
+        - filter_password
+        - preprocess
+        - operator-name
+        - cui
+        - auth_log
+        - chap
+        - mschap
+        - digest
+        - wimax
+        - IPASS
+        - suffix
+        - ntdomain
+        - eap:
+          - ok: return
+          - updated: return
+        - unix
+        - files
+        - "-sql"
+        - smbpasswd
+        - "-ldap"
+        - daily
+        - expiration
+        - logintime
+        - pap
+        - "Autz-Type Status-Server": {}
+      - authenticate:
+        - "Auth-Type PAP":
+          - pap
+        - "Auth-Type CHAP":
+          - chap
+        - "Auth-Type MS-CHAP":
+          - mschap
+        - mschap
+        - digest
+        - pam
+        - "Auth-Type LDAP":
+          - ldap
+        - eap
+        - "Auth-Type eap":
+          - eap:
+            - handled: 1
+          - "if (handled && (Response-Packet-Type == Access-Challenge))":
+            - "attr_filter.access_challenge.post-auth"
+            - 'handled  # override the "updated" code from attr_filter'
+      - preacct:
+        - preprocess
+        - acct_counters64
+        - "update request":
+          - "FreeRADIUS-Acct-Session-Start-Time": '"{{ '%{expr: %l - %{%{Acct-Session-Time}:-0} - %{%{Acct-Delay-Time}:-0}\}' }}"'
+        - acct_unique
+        - IPASS
+        - suffix
+        - ntdomain
+        - files
+      - accounting:
+        - cui
+        - detail
+        - daily
+        - unix
+        - radutmp
+        - sradutmp
+        - main_pool
+        - "-sql"
+        - "if (noop)":
+          - ok
+        - sql_log
+        - "pgsql-voip"
+        - exec
+        - "attr_filter.accounting_response"
+        - "Acct-Type Status-Server": {}
+      - session:
+        - radutmp
+        - sql
+      - "post-auth":
+        - "if (!&reply:State)":
+          - "update reply":
+            - 'State := "0x%{randstr:16h}"'
+        - update:
+          - "&reply: += &session-state:"
+        - main_pool
+        - cui
+        - reply_log
+        - "-sql"
+        - sql_log
+        - ldap
+        - exec
+        - wimax
+        - "update reply":
+          - 'Reply-Message += "%{TLS-Cert-Serial}"'
+          - 'Reply-Message += "%{TLS-Cert-Expiration}"'
+          - 'Reply-Message += "%{TLS-Cert-Subject}"'
+          - 'Reply-Message += "%{TLS-Cert-Issuer}"'
+          - 'Reply-Message += "%{TLS-Cert-Common-Name}"'
+          - 'Reply-Message += "%{TLS-Cert-Subject-Alt-Name-Email}"'
+          - 'Reply-Message += "%{TLS-Client-Cert-Serial}"'
+          - 'Reply-Message += "%{TLS-Client-Cert-Expiration}"'
+          - 'Reply-Message += "%{TLS-Client-Cert-Subject}"'
+          - 'Reply-Message += "%{TLS-Client-Cert-Issuer}"'
+          - 'Reply-Message += "%{TLS-Client-Cert-Common-Name}"'
+          - 'Reply-Message += "%{TLS-Client-Cert-Subject-Alt-Name-Email}"'
+        - insert_acct_class
+        - "if (&reply:EAP-Session-Id)":
+          - "update reply":
+            - "EAP-Key-Name := &reply:EAP-Session-Id"
+        - remove_reply_message_if_eap
+        - "Post-Auth-Type REJECT":
+          - "-sql"
+          - "attr_filter.access_reject"
+          - eap
+          - remove_reply_message_if_eap
+        - "Post-Auth-Type Challenge":
+          - remove_reply_message_if_eap
+          - "attr_filter.access_challenge.post-auth"
+      - "pre-proxy":
+        - "operator-name"
+        - cui
+        - files
+        - "attr_filter.pre-proxy"
+        - pre_proxy_log
+      - "post-proxy":
+        - post_proxy_log
+        - "attr_filter.post-proxy"
+        - eap
+        - "Post-Proxy-Type Fail-Accounting":
+          - detail
+    inner-tunnel:
+      - listen:
+        - ipaddr: 127.0.0.1
+        - port: 18120
+        - type: auth
+      - authorize:
+        - filter_username
+        - filter_inner_identity
+        - chap
+        - mschap
+        - unix
+        - IPASS
+        - suffix
+        - ntdomain
+        - "update control":
+          - "&Proxy-To-Realm := LOCAL"
+        - eap:
+          - ok: return
+        - files
+        - "-sql"
+        - smbpasswd
+        - "-ldap"
+        - daily
+        - expiration
+        - logintime
+        - pap
+      - authenticate:
+        - "Auth-Type PAP":
+          - pap
+        - "Auth-Type CHAP":
+          - chap
+        - "Auth-Type MS-CHAP":
+          - mschap
+        - mschap
+        - pam
+        - "Auth-Type LDAP":
+          - ldap
+        - eap
+      - session:
+        - radutmp
+        - sql
+      - "post-auth":
+        - "cui-inner"
+        - reply_log
+        - "-sql"
+        - sql_log
+        - ldap
+        - moonshot_host_tid
+        - moonshot_realm_tid
+        - moonshot_coi_tid
+        - "if (0)":
+          - "update reply":
+            - "User-Name !* ANY"
+            - "Message-Authenticator !* ANY"
+            - "EAP-Message !* ANY"
+            - "Proxy-State !* ANY"
+            - "MS-MPPE-Encryption-Types !* ANY"
+            - "MS-MPPE-Encryption-Policy !* ANY"
+            - "MS-MPPE-Send-Key !* ANY"
+            - "MS-MPPE-Recv-Key !* ANY"
+          - update:
+            - "&outer.session-state: += &reply:"
+        - "Post-Auth-Type REJECT":
+          - "-sql"
+          - "attr_filter.access_reject"
+          - "update outer.session-state":
+            - "&Module-Failure-Message := &request:Module-Failure-Message"
+      - "pre-proxy":
+        - files
+        - "attr_filter.pre-proxy"
+        - pre_proxy_log
+      - "post-proxy":
+        - post_proxy_log
+        - "attr_filter.post-proxy"
+        - eap
+  modules:
+    always: ~
+    attr_filter: ~
+    cache_eap: ~
+    chap: ~
+    date: ~
+    detail: ~
+    "detail.log": ~
+    dhcp: ~
+    digest: ~
+    dynamic_clients: ~
+    eap: ~
+    echo: ~
+    exec: ~
+    expiration: ~
+    expr: ~
+    files: ~
+    linelog: ~
+    logintime: ~
+    mschap: ~
+    ntlm_auth: ~
+    pap: ~
+    passwd: ~
+    preprocess: ~
+    radutmp: ~
+    realm: ~
+    replicate: ~
+    soh: ~
+    sradutmp: ~
+    unix: ~
+    unpack: ~
+    utf8: ~

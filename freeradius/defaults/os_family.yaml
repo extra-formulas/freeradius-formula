@@ -1,0 +1,39 @@
+RedHat:
+  pkgs_core:
+    - freeradius
+  pkgs_modules:
+    ldap: freeradius-ldap
+  radiusd_conf: /etc/raddb/radiusd.conf
+  radiusd_conf_includes_dir: /etc/raddb/
+  radiusd_certs_dir: /etc/raddb/certs/
+  radiusd_cas_dir: /etc/raddb/certs/
+  service_user: radiusd
+  service_group: radiusd
+  service_name: radiusd
+  global_variables:
+    prefix: /usr
+    exec_prefix: /usr
+    sysconfdir: /etc
+    localstatedir: /var
+    sbindir: /usr/sbin
+    logdir: ${localstatedir}/log/radius
+    raddbdir: ${sysconfdir}/raddb
+    radacctdir: ${logdir}/radacct
+    name: radiusd
+    confdir: ${raddbdir}
+    modconfdir: ${confdir}/mods-config
+    certdir: ${confdir}/certs
+    cadir: ${confdir}/certs
+    run_dir: ${localstatedir}/run/${name}
+    db_dir: ${localstatedir}/lib/radiusd
+    libdir: /usr/lib64/freeradius
+    pidfile: ${run_dir}/${name}.pid
+  includes:
+    proxy: proxy.conf
+    clients: clients.conf
+    mods_enabled: mods-enabled/
+    policy_d: policy.d/
+    sites_enabled: sites-enabled/
+  available_configs:
+    mods_enabled: mods-available/
+    sites_available: sites-available/

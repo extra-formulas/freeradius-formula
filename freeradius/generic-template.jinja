@@ -1,0 +1,30 @@
+{%- set str_from_bool = {True : 'yes', False : 'no'} -%}
+{%- set block_separator = '	' -%}
+{% macro radius_section(elements, depth = 0) -%}
+ {%- if elements is sequence %}
+  {%- for element in elements %}
+   {%- if element is mapping %}
+    {%- for key in element %}
+     {%- if element[key] is boolean %}
+{{ block_separator *  depth ~ key ~ ' = ' ~ str_from_bool[element[key]] }}
+     {%- elif (element[key] is string) or (element[key] is number) %}
+{{ block_separator *  depth ~ key ~ ' = ' ~ element[key] }}      
+     {%- elif element[key] is sequence %}
+{{ block_separator *  depth ~ key ~ ' {'  -}}
+{{ radius_section(element[key], depth + 1) }}
+{{- block_separator *  depth ~ '}' }}
+     {%- else %}
+#Not supported dict value| {{ key ~ " = " ~ element[key] }}
+     {%- endif %}
+    {%- endfor %}
+   {%- elif element is string %}
+{{ block_separator *  depth ~ element }}
+   {%- else %}
+#Element is not supported, yet: {{ element }}
+   {%- endif %}
+  {%- endfor %}
+ {%- else %}
+#Provided elements is not valid for a radius section: {{ elements }}
+ {%- endif %}
+{% endmacro -%}
+{{ radius_section(content) }}
