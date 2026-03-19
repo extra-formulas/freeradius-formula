@@ -1,4 +1,4 @@
-{%- set default_sources = {'module' : 'freeradius', 'defaults' : True, 'pillar' : True, 'grains' : ['os_family','os','osfinger']} %}
+{%- set default_sources = {'module' : 'freeradius', 'defaults' : True, 'pillar' : True, 'grains' : ['os_family']} %}
 {%- from "freeradius/defaults/load_config.jinja" import config as freeradius with context %}
 
 freeradius:
