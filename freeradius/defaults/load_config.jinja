@@ -1,5 +1,63 @@
-{# __name__ = 'load_config' #}
-{# __version__ = '1.0.0' #}
+{# Default values loader
+This script is meant to replace the regular "map.jinja" one used in SaltStack formulas. It also has a different behavior: this script flattens the configuration into a single variable, avoiding the "pillar:lookup" pattern.
+
+The input parameters are expected as a context variable called "default_sources". You'll need to specify there the name of the module that you're working with. Submodules are supported, for that, you'll provide the name as a "path", using a list. You need to set the value of the "default_sources" variable and then load this script with context.
+
+The possible sources of values are:
+ - "defaults"/everyone, these will apply in ALL cases, including submodules; it usually include settings that MUST be present for the formula to work, and are the software global defaults or a "safe" assumption/guess.
+ - grain based, this is a list of all the grains that will be used to add values to the settings; the files/values will be loaded and applied in the same order that they appear in the list.
+ - pillar, which is merged AS IS; no lookup pattern, the base pillar is loaded into the settings.
+
+ The script expects a naming convention for the files holding the values. There should be a "defaults" directory in the root of the module, where the YAML files containing the values should live. Then there could be a "defaults.yaml" file for the "everyone" values. There should also be a file matching the grain name for each grain that is used for the configuration.
+
+
+########## Dummy example ##########
+
+Directory structure:
+- spam
+  - defaults
+    - defaults.yaml
+    - load_config.jinja
+    - os.yaml
+    - os_family.yaml
+    - osfinger.yaml
+  - init.sls
+
+The "init.sls" file should start with something like this:
+"""
+{%- set default_sources = {'module' : 'spam', 'defaults' : True, 'pillar' : True, 'grains' : ['os_family', 'os', 'osfinger']} %}
+{%- from "spam/defaults/load_config.jinja" import config as spam with context %}
+
+{%- if spam.use is defined %}
+...
+"""
+
+
+########## Submodule example ##########
+
+Directory structure:
+- foo
+  - bar
+    - init.sls
+  - defaults
+    - defaults.yaml
+    - load_config.jinja
+    - os.yaml
+    - os_family.yaml
+    - osfinger.yaml
+  - init.sls
+
+The "bar/init.sls" file should start with something like this:
+"""
+{%- set default_sources = {'module' : ['foo', 'bar'], 'defaults' : True, 'pillar' : True, 'grains' : ['os_family', 'os', 'osfinger']} %}
+{%- from "foo/defaults/load_config.jinja" import config as bar with context %}
+
+{%- if bar.use is defined %}
+...
+"""
+
+__version__ = '1.0.1'
+#}
 
 {% if default_sources['module'] is string %}
     {% set default_sources = salt['slsutil.merge'](default_sources, {'module' : [default_sources['module']]}) %}
